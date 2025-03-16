@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+  
+  <meta http-equiv="refresh" content="1">
+  
+  <head>
+    <meta charset="utf-8">
+
+    <script>
+      if (location.protocol != 'https:') {
+        location.href = 'https:' + location.href.substring(window.location.protocol.length);
+      }
+    </script>
+    
+    <script src="../data/path.js"></script>
+
+    <title>Ch. 02 - Terrain Height</title>
+    <link rel="shortcut icon" type="image/x-icon" href="https://cdn.glitch.global/24b58a05-b69e-474e-a3d5-3ef1785ca664/favicon.ico?v=1729461065485">
+    
+  </head>
+    
+  <body>
+    <h3 style="color:red">
+      See data/path.js for the creation of the path using Prim's Algorithm and the minimum distance calculation.
+    </h3>
+    
+    <h3>The path creates a maze by connecting random points using Prim's Algorithm:</h3>
+    <canvas id="path"    width="512" height="512" style="border:solid 1px black;"></canvas>      
+
+    <h3>The minimum distance to the path becomes the height map, automatically creating mountains around the edges:</h3>
+    <canvas id="heights" width="512" height="512" style="border:solid 1px black;"></canvas>
+
+    <script>
+
+      // Draw the path connections that have been found using Prim's Algorithm (see path.js)
+      function drawPath(canvas, path, terrainSize = 256) {
+        
+        let ctx = canvas.getContext("2d", { willReadFrequently:true } );
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        ctx.strokeStyle = 'blue';
+        for (let p = 0; p < path.wayPoints.length; p++) {
+          let point = path.wayPoints[p];
+          
+          ctx.beginPath();
+          ctx.arc(point.x/terrainSize*canvas.width, point.y/terrainSize*canvas.height, 3, 0, 2 * Math.PI)
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = 'red';
+        ctx.beginPath();
+        for (let c = 0; c < path.connections.length; c++) {
+          let start = path.connections[c][0];
+          let end   = path.connections[c][1];
+          
+          ctx.moveTo(start.x/terrainSize*canvas.width, start.y/terrainSize*canvas.height);
+          ctx.lineTo(end.x/terrainSize*canvas.width, end.y/terrainSize*canvas.height);
+        }
+        ctx.stroke();
+        
+      }
+
+      // Draw the minimum distance to the path as height map
+      function drawHeightMap(canvas, path, terrainSize = 256) {
+        
+        let ctx = canvas.getContext("2d", { willReadFrequently:true } );
+        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        let data = imageData.data;
+
+        let i = 0;
+        for (let y = 0; y < canvas.width; y++) {
+          for (let x = 0; x < canvas.width; x++) {
+            
+            // Divide by maxDistance to get a range of approx. 0 - 1
+            let height = path.distanceToPath(x/canvas.width*terrainSize, y/canvas.height*terrainSize) / path.maxDistance;
+
+            // Smoothstep the height for nicer valleys
+            height = height * height * (3 - 2 * height);
+            
+            data[i+0] = data[i+1] = data[i+2] = height * 255;
+            data[i+3] = 255; // Alpha 
+            i += 4;
+          }
+        }
+
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      let path = new Path(100, 256);
+
+      let pathCanvas = document.getElementById("path");
+      drawPath(pathCanvas, path);
+
+      let heightsCanvas = document.getElementById("heights");
+      drawHeightMap(heightsCanvas, path);
+
+    </script>
+
+  </body>
+    
+</html>

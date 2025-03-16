@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="utf-8">
+
+    <script>
+      if (location.protocol != 'https:') {
+        location.href = 'https:' + location.href.substring(window.location.protocol.length);
+      }
+    </script>
+    
+    <title>The King's Crowns Terrain</title>
+    <link rel="shortcut icon" type="image/x-icon" href="https://cdn.glitch.global/24b58a05-b69e-474e-a3d5-3ef1785ca664/favicon.ico?v=1729461065485">
+
+    <!-- Include the loading icon first and write it as first thing in the body -->
+    <script src="/helpers/loadingimage.js"></script>
+    
+    <!-- Include A-Frame -->
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    
+    <!-- Include Smooth Voxels for the Stone blocks -->
+    <script src="https://cdn.jsdelivr.net/gh/SamuelVanEgmond/Smooth-Voxels@v2.4.0/dist/smoothvoxels.min.js"></script>
+    
+    <!-- A-Frame Extras Component which (among other things) allows for the movement in Meta Quest -->
+    <!-- https://github.com/donmccurdy/aframe-extras -->
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
+
+    <script src="/data/path.js"></script>
+    <script src="/data/noise.js"></script>
+    <script src="/data/heightfield.js"></script>
+    <script src="/helpers/lightcalculator.js"></script>
+    <script src="/textures/lightmapgenerator.js"></script>
+    <script src="/textures/grassmapgenerator.js"></script>
+    <script src="/textures/terrainmapgenerator.js"></script>
+    <script src="/shaders/noise.js"></script>
+    <script src="/shaders/flexshader.js"></script>
+    <script src="/shaders/skyshader.js"></script>
+    <script src="/components/fpscounter.js"></script>
+    <script src="/components/objecttracker.js"></script>
+    <script src="/components/terrain.js"></script>
+    <script src="/components/palms.js"></script>
+    <script src="/components/stones.js"></script>
+    <script src="/components/grass.js"></script>
+    <script src="/components/skydome.js"></script>
+    <script src="/components/follow.js"></script>
+    <script src="/components/ambientlight.js"></script>
+    <script src="/components/timeofday.js"></script>
+    <script src="/components/walkterraincontrols.js"></script>
+    <script src="/components/avoidobjectscontrols.js"></script>
+    
+  </head>
+
+  <body style="background-color:#004000;">
+    <script>
+      showLoadingImage();
+    </script>
+
+    <a-scene id="scene" background="color:#5AF" 
+                        fog="type: linear; color: #BCD; near: 75; far: 300;" 
+                        timeofday objecttracker
+                        fpscounter>
+
+      <a-entity id="camerarig" position="0 0 2" movement-controls walkterraincontrols="fly: false" avoidobjectscontrols>
+        <a-entity position="0 1.6 0" camera look-controls="pointerLockEnabled: true;"></a-entity>
+      </a-entity>
+      
+      <a-entity terrain ambientlight></a-entity>
+      <a-entity stones="count:100"></a-entity>
+      <a-entity palms="count:200"></a-entity>
+      <a-entity grass ambientlight></a-entity>
+      
+      <a-entity id="sky" geometry="primitive:skydome;" scale="500 250 500" follow 
+                         material="shader:skyshader; side:back;"></a-entity>  
+      
+    </a-scene>
+    
+  </body>
+
+</html>

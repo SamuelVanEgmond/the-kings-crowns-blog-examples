@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+  
+  <meta http-equiv="refresh" content="1">
+  
+  <head>
+    <meta charset="utf-8">
+
+    <script>
+      if (location.protocol != 'https:') {
+        location.href = 'https:' + location.href.substring(window.location.protocol.length);
+      }
+    </script>
+    
+    <script src="../data/path.js"></script>
+
+    <title>Ch. 11 - Grass Map</title>
+    <link rel="shortcut icon" type="image/x-icon" href="https://cdn.glitch.global/24b58a05-b69e-474e-a3d5-3ef1785ca664/favicon.ico?v=1729461065485">
+    
+  </head>
+    
+  <body>
+    <h3>Grass map, extra depth using darker blades higher off the bottom at the back, and ambient occlusion using a simple gradient:</h3>
+    <canvas id="grass" width="512" height="512"
+            style="background-image: linear-gradient(45deg, #EEE 25%, transparent 25%), linear-gradient(-45deg, #EEE 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #EEE 75%), linear-gradient(-45deg, transparent 75%, #EEE 75%);
+                   background-size: 16px 16px;
+                   background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+                   border:solid 1px black;">
+    </canvas>
+
+    <script>
+      
+        function generateGrassMap(canvas) {
+
+          let ctx = canvas.getContext("2d", { willReadFrequently:true } );
+
+          let width  = canvas.width;
+          let height = canvas.height;
+          
+          ctx.lineCap = "round";
+
+          // Create 200 grass blades
+          const bladeCount = 200;
+          for (let blade = 0; blade < bladeCount; blade++) {
+
+            // Set up the random parameters for each blade
+            // Draw the blades from back to front
+            // Back blades higher off the ground and darker to create depth
+            let xPos         = (Math.random()*0.8+0.1)*width;
+            let offsetTop    = (Math.random()-0.5)*0.125*width;
+            let offsetBottom = (Math.random()-0.5)*0.125*width;
+            let offsetGround = (1-blade/bladeCount)*height*0.15;  
+            let bladeHeight  = (Math.random()*0.7+0.25)*height;
+            let curve        = (Math.random()-0.5)*0.125*width;
+
+            // Create a vertical gradient per blade darker for first drawn blades 'in the back'
+            let gradient = ctx.createLinearGradient(0, bladeHeight, 0, 0);
+            let c = Math.floor(blade/(bladeCount+1)*6); // 0-5
+            gradient.addColorStop(0, `#${2+c}${4+c}0`);
+            gradient.addColorStop(1, '#9B0');
+            ctx.strokeStyle = gradient;
+
+            // Draw the blade, slowly becoming thinner to the top
+            for (let d = 0; d<1; d += 0.01) {
+              let e = d + 0.05;
+              ctx.beginPath();
+              ctx.lineWidth = width/bladeCount*2*(1-d*0.8);
+              ctx.moveTo(xPos + offsetBottom*(1-d) + offsetTop*(d) + Math.sin(d*3.14)*curve, (height-offsetGround)*(1-d) + (height-bladeHeight)*d);
+              ctx.lineTo(xPos + offsetBottom*(1-e) + offsetTop*(e) + Math.sin(e*3.14)*curve, (height-offsetGround)*(1-e) + (height-bladeHeight)*e);
+              ctx.stroke();
+            }
+          }
+
+          // Draw a black to transparent gradient from the bottom up to create fake ambient occlusion
+          let gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height/2);
+          gradient.addColorStop(0, 'rgba(0,0,0,0.8)');
+          gradient.addColorStop(1, 'transparent');
+          ctx.globalCompositeOperation = 'source-atop';
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height); 
+        }      
+
+      let grassCanvas = document.getElementById("grass");
+      generateGrassMap(grassCanvas);
+
+    </script>
+
+  </body>
+    
+</html>

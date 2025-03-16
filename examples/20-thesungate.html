@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="utf-8">
+
+    <script>
+      if (location.protocol != 'https:') {
+        location.href = 'https:' + location.href.substring(window.location.protocol.length);
+      }
+    </script>
+    
+    <title>Ch. 20 - The Sun Gate</title>
+    <link rel="shortcut icon" type="image/x-icon" href="https://cdn.glitch.global/24b58a05-b69e-474e-a3d5-3ef1785ca664/favicon.ico?v=1729461065485">
+    
+    <!-- Include the loading icon first and write it as first thing in the body -->
+    <script src="../helpers/loadingimage.js"></script>
+
+    <!-- Include A-Frame -->
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    
+    <!-- Include Smooth Voxels for the Stone blocks -->
+    <script src="https://cdn.jsdelivr.net/gh/SamuelVanEgmond/Smooth-Voxels@v2.4.0/dist/smoothvoxels.min.js"></script>
+    
+    <!-- A-Frame Extras Component which (among other things) allows for the movement in Meta Quest -->
+    <!-- https://github.com/donmccurdy/aframe-extras -->
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
+
+    <script src="../data/path.js"></script>
+    <script src="../data/noise.js"></script>
+    <script src="../data/heightfield.js"></script>
+    <script src="../helpers/lightcalculator.js"></script>
+    <script src="../textures/lightmapgenerator.js"></script>
+    <script src="../textures/grassmapgenerator.js"></script>
+    <script src="../textures/terrainmapgenerator.js"></script>
+    <script src="../shaders/noise.js"></script>
+    <script src="../shaders/flexshader.js"></script>
+    <script src="../shaders/skyshader.js"></script>
+    <script src="../components/objecttracker.js"></script>
+    <script src="../components/terrain.js"></script>
+    <script src="../components/palms.js"></script>
+    <script src="../components/grass.js"></script>
+    <script src="../components/skydome.js"></script>
+    <script src="../components/follow.js"></script>
+    <script src="../components/ambientlight.js"></script>
+    <script src="../components/walkterraincontrols.js"></script>
+    <script src="../components/avoidobjectscontrols.js"></script>
+    
+    <script>
+    
+      AFRAME.registerComponent('stones', {
+        schema: {
+         count: { default: 100 }          
+        },
+        
+        init: function () {
+          
+          const heightField = document.querySelector('[terrain]').components['terrain'].heightField;
+          const terrainMap = document.querySelector('[terrain]').components['terrain'].terrainMap;
+          
+          this.worldToMap = terrainMap.width / heightField.size;
+          this.center     = heightField.size/2;
+          
+          // Draw the stone shadows directly on the terrain map for higher resolution / sharper shadows
+          let ctxTerrain = terrainMap.getContext('2d', { willReadFrequently:true });
+          ctxTerrain.save();
+
+          // Begin path for all shadows
+          ctxTerrain.beginPath();    
+          
+          // Add the legs of the Sun Gate to the object tracker to prevent overlapping blocks and for collision detection
+          const objectTracker = this.el.sceneEl.systems['objecttracker'];
+          objectTracker.addObject(-1.5, 0, 0.75);
+          objectTracker.addObject( 1.5, 0, 0.75);
+          
+          // Create a lot of stones, laying in the terrain
+          let stones = "";
+          for (let l = 0; l < this.data.count; l++) {
+            let x = 0;
+            let y = 0;
+            let z = 0;
+
+            // Generate locations, up to the maximum elevation with less stones higher up
+            do {
+              x = (Math.random() - 0.5) * heightField.size;
+              z = (Math.random() - 0.5) * heightField.size;
+              y = heightField.getHeight(x + this.center, z + this.center);
+            } while((y > Math.random() * heightField.size * 0.005) ||
+                    objectTracker.getNearestObject(x,z,2))
+              
+            // Add this stone to the object tracker  
+            objectTracker.addObject(x, z, 0.75);
+
+            // Add the new stone with a random color at the right position to the model
+            let color = ['C88', '8C8', '88C', 'CC8', 'C8C'][Math.floor(Math.random()*5)];
+            stones += `group clone = Stone, position = ${x} ${y} ${z}, recolor = A:#${color}\n`;
+            
+            this.drawShadow(ctxTerrain, x, 0, z);
+          }      
+
+          // Add the shadows for the Sun Gate stones
+          this.drawShadow(ctxTerrain, -1.5, 0, 0);
+          this.drawShadow(ctxTerrain, -1.5, 1, 0);
+          this.drawShadow(ctxTerrain, -1.5, 2, 0);
+          this.drawShadow(ctxTerrain, -1.5, 3, 0);
+          this.drawShadow(ctxTerrain, -1.5, 4, 0);
+          this.drawShadow(ctxTerrain, -0.5, 4, 0);
+          this.drawShadow(ctxTerrain,  0.5, 4, 0);
+          this.drawShadow(ctxTerrain,  1.5, 4, 0);
+          this.drawShadow(ctxTerrain,  1.5, 3, 0);
+          this.drawShadow(ctxTerrain,  1.5, 2, 0);
+          this.drawShadow(ctxTerrain,  1.5, 1, 0);
+          this.drawShadow(ctxTerrain,  1.5, 0, 0);
+          
+          // Draw all shadows at once
+          ctxTerrain.fillStyle = 'rgba(0,0,0,0.3)';    
+          ctxTerrain.fill();
+          
+          ctxTerrain.restore();    
+          
+          SVOX.models.Stones = `
+            // A simple small bump texture for the stones 
+            texture id = Stone, cube = false, size = 64 64, borderoffset = 0.5, image = data:image/webp;base64,UklGRpIDAABXRUJQVlA4WAoAAAAIAAAAPwAAPwAAVlA4IJYCAABQEQCdASpAAEAAPjUaikMhBEEzBQDRPSdw9Ab+FWUAtQRol0u1xZJoGOygJaxNtNHp+BZ7TP6+j5uKEp5/If/wc+t6hfNlq7jaM4HvW3QTuN1uLyS6hb6Qw7c1RkDOYExi+YHxdh4WXGk743yo83oJdDbS60IZ7KsVq0/0/uAu3DIj23StV11wmT2DChtVpGQdAIAA/vzSLljybjpA6eZvI15csPZttGDoaGKyKgvNdQB3VyMuEHJw+qgap6f8o9C1rtsdCLfGZm68WG79t0TENr94g3FdzFPfqM3zYmEisCEHZaERaRyP8vG/TIoBMKI01XTeM+ho3dskmRspGmYguWC/l5MpDzci56UFQlo6U7LNrVZeWXGb0qwb/mBZ2entHLQOjtBUH7+qgBprHDl0sVQWWVEOATq8xQju9oF2PJ0XUC/RTQcDPF0nS1esbo+BBUevsk2R4H92Mg0nT9vs3/poSSfGFYPj9sVBndnAtdwau+2FM7bMuHK61K/dy0okTd8qXpEwPSn4FcTKit2Pi/2T73u7XUFWJ7vv1eIL8IoyV/pdSTN601cCGdCOB0XHM0njb4sTJOl+zAfDAyiqyjTmC0TgYu0qXZIBN1Kzkhud1x5+mV/FAxrstlfINDMqafFMPLUBaeYuHHBrOdQQmerju/XbrzptBByeCWPi1liBsTLx8KBw2q0uGn5JVhEF9ei03FRL+QQyXEAOLajj/8198sR9feIhXobDcurfvkoxZPWQntz7De4xWpzjYsI/mHqsQFFlPmjrRhFqtbwksYUQQPLg12iG1870TsOwAtnn6R6AOYXYSPu5T9hPp4aCPMKrDrWW4suAf+IaHmGGBlbxXNkB5ibMUlGekH9uMggFIzygAEVYSUbWAAAASUkqAAgAAAAGABIBAwABAAAAAQAAABoBBQABAAAAVgAAABsBBQABAAAAXgAAACgBAwABAAAAAwAAADEBAgAQAAAAZgAAAGmHBAABAAAAdgAAAAAAAACjkwAA6AMAAKOTAADoAwAAUGFpbnQuTkVUIDUuMS40AAUAAJAHAAQAAAAwMjMwAaADAAEAAAABAAAAAqAEAAEAAABAAAAAA6AEAAEAAABAAAAABaAEAAEAAAC4AAAAAAAAAAIAAQACAAQAAABSOTgAAgAHAAQAAAAwMTAwAAAAAA==
+
+            model
+            size = 10 10 10
+            
+            // Ambient occlusion for some added realism
+            ao = 3 1
+            
+            // No real time lighting, but Smooth Voxels supports vertex baked lighting
+            light intensity = 0.5  // Ambient light
+            light intensity = 0.7, direction =  1 1  1 // Sun / Moon
+            light intensity = 0.2, direction = -1 1 -1 // Sky
+
+            // We create a stone prefab from the voxels shown below
+            group id = Stone, origin = -y, prefab = true, shape = box, scale = 0.1
+            material group = Stone, type = basic, lighting = smooth, deform = 1
+                     map = Stone, maptransform = 1.5 1.5, fade = true, colors = A:#B97
+
+            // The Sun Gate from cloned stones
+            group clone = Stone, position = -1.5 0 0
+            group clone = Stone, position = -1.5 1 0
+            group clone = Stone, position = -1.5 2 0
+            group clone = Stone, position = -1.5 3 0
+            group clone = Stone, position = -1.5 4 0
+            group clone = Stone, position = -0.5 4 0
+            group clone = Stone, position =  0.5 4 0
+            group clone = Stone, position =  1.5 4 0
+            group clone = Stone, position =  1.5 3 0
+            group clone = Stone, position =  1.5 2 0
+            group clone = Stone, position =  1.5 1 0
+            group clone = Stone, position =  1.5 0 0
+
+            // The other stones strewn around
+            ${stones}
+
+            voxels
+            AAAAAAAAAA AAAAAAAAAA 6(AA------AA) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(AAAAAAAAAA) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(-AAAAAAAA-) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(-AAAAAAAA-) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(-AAAAAAAA-) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(-AAAAAAAA-) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(-AAAAAAAA-) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(-AAAAAAAA-) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(AAAAAAAAAA) AAAAAAAAAA AAAAAAAAAA
+            AAAAAAAAAA AAAAAAAAAA 6(AA------AA) AAAAAAAAAA AAAAAAAAAA
+          `;    
+
+          this.el.setAttribute('svox', 'model:Stones;');
+          this.el.setAttribute('ambientlight', '');
+        },
+        
+        drawShadow: function(ctxTerrain, x, y, z) {
+          // Hardcoded shadow for a cube. In The Kings Crowns the stones are rotated, but here all stones are axis aligned
+          ctxTerrain.moveTo(this.worldToMap * (this.center + x + 0.5 - y), this.worldToMap * (this.center + z + 0.5 - y));
+          ctxTerrain.lineTo(this.worldToMap * (this.center + x - 0.5 - y), this.worldToMap * (this.center + z + 0.5 - y));
+          ctxTerrain.lineTo(this.worldToMap * (this.center + x - 1.5 - y), this.worldToMap * (this.center + z - 0.5 - y));
+          ctxTerrain.lineTo(this.worldToMap * (this.center + x - 1.5 - y), this.worldToMap * (this.center + z - 1.5 - y));
+          ctxTerrain.lineTo(this.worldToMap * (this.center + x - 0.5 - y), this.worldToMap * (this.center + z - 1.5 - y));
+          ctxTerrain.lineTo(this.worldToMap * (this.center + x + 0.5 - y), this.worldToMap * (this.center + z - 0.5 - y));
+          ctxTerrain.lineTo(this.worldToMap * (this.center + x + 0.5 - y), this.worldToMap * (this.center + z + 0.5 - y));
+        }
+      });
+      
+      AFRAME.registerSystem('timeofday', {
+        init: function () {
+          this.ambientLight = new THREE.Color(1,1,1);
+          this.dayState = 'day';
+          this.timeOfDay = 0.5;
+        },
+
+        tick: function (time, timeDelta) {
+          let cameraPosition = new THREE.Vector3();
+          this.el.sceneEl.camera.getWorldPosition(cameraPosition);
+          
+          // Handle the day / night rhythm and change to day / night when the player passes through the sun gate (positioned at (0,0,0) )
+          let playerInSunGate = Math.abs(cameraPosition.x)<1 && Math.abs(cameraPosition.z)<0.25;
+          this.handleDayAndNight(playerInSunGate, timeDelta, time);
+        },
+        
+        // Handle the Day to Night or Night to Day transition
+        handleDayAndNight(playerInSunGate, timeDelta, time) {
+          switch (this.dayState) {
+            case 'day': {
+              this.dayState = playerInSunGate ? 'toNight' : 'day';
+              break;
+            }
+            case 'night': {
+              this.dayState = playerInSunGate ? 'toDay' : 'night';
+              break;
+            }
+            case 'toDay': {
+              this.timeOfDay += timeDelta/10000; 
+              if (this.timeOfDay >= 0.5) {
+                this.timeOfDay = 0.5;
+                this.dayState = 'day';
+              }
+              break;
+            }
+            case 'toNight': {
+              this.timeOfDay += timeDelta/10000; 
+              if (this.timeOfDay >= 1) {
+                this.timeOfDay = 0;
+                this.dayState = 'night';
+              }
+              break;
+            }
+          }
+
+          this.setTimeOfDay(time, this.timeOfDay);
+        },     
+
+        // Change the time of day during a transition
+        setTimeOfDay(time, timeOfDay) {
+          let day = 0.5-Math.cos(timeOfDay*Math.PI*2)/2;
+          let night = 1-day;
+
+          // Set the ambient light to (0.05, 0.1, 1.15) for night and (1,1,1) for day
+          this.ambientLight.set(night*0.05 + day*1,night*0.1 + day*1,night*0.15 + day*1);    
+
+          // Change the fog from light to dark
+          let scene = document.getElementById("scene");
+          scene.setAttribute('fog', 'color', `rgba(${Math.round(day*187)}, ${Math.round(day*204)}, ${Math.round(day*221)}, 1)`);
+
+          // Set the time of day
+          let sky = document.getElementById("sky");
+          sky.setAttribute('material', 'timeofday', day);
+
+          // Setting the timeofday attribute also sets the time, so the automatic A-Frame time parameter does not work
+          sky.setAttribute('material', 'time', time);          
+        }
+
+      });            
+    
+    </script>
+    
+  </head>
+
+  <body style="background-color:#004000; margin:0;">
+    <script>
+      showLoadingImage();
+    </script>
+        
+    <a-scene id="scene" background="color:#5AF" 
+                        fog="type: linear; color: #BCD; near: 75; far: 300;" 
+                        timeofday objecttracker>
+
+      <a-entity id="camerarig" position="0 0 2" movement-controls walkterraincontrols="fly: false" avoidobjectscontrols>
+        <a-entity position="0 1.6 0" camera look-controls="pointerLockEnabled: true;"></a-entity>
+      </a-entity>
+      
+      <a-entity terrain ambientlight></a-entity>
+      <a-entity stones="count:100"></a-entity>
+      <a-entity palms="count:200"></a-entity>
+      <a-entity grass ambientlight></a-entity>
+      
+      <a-entity id="sky" geometry="primitive:skydome;" scale="500 250 500" follow 
+                         material="shader:skyshader; side:back;"></a-entity>  
+      
+    </a-scene>
+    
+  </body>
+
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset="utf-8">
+
+    <script>
+      if (location.protocol != 'https:') {
+        location.href = 'https:' + location.href.substring(window.location.protocol.length);
+      }
+    </script>
+    
+    <title>Ch. 19 - Object Collisions</title>
+    <link rel="shortcut icon" type="image/x-icon" href="https://cdn.glitch.global/24b58a05-b69e-474e-a3d5-3ef1785ca664/favicon.ico?v=1729461065485">
+
+    <!-- Include the loading icon first and write it as first thing in the body -->
+    <script src="../helpers/loadingimage.js"></script>
+    
+    <!-- Include A-Frame -->
+    <script src="https://aframe.io/releases/1.7.0/aframe.min.js"></script>
+    
+    <!-- Include Smooth Voxels for the Stone blocks -->
+    <script src="https://cdn.jsdelivr.net/gh/SamuelVanEgmond/Smooth-Voxels@v2.4.0/dist/smoothvoxels.min.js"></script>
+    
+    <!-- A-Frame Extras Component which (among other things) allows for the movement in Meta Quest -->
+    <!-- https://github.com/donmccurdy/aframe-extras -->
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
+
+    <script src="../data/path.js"></script>
+    <script src="../data/noise.js"></script>
+    <script src="../data/heightfield.js"></script>
+    <script src="../helpers/lightcalculator.js"></script>
+    <script src="../textures/lightmapgenerator.js"></script>
+    <script src="../textures/grassmapgenerator.js"></script>
+    <script src="../textures/terrainmapgenerator.js"></script>
+    <script src="../shaders/noise.js"></script>
+    <script src="../shaders/flexshader.js"></script>
+    <script src="../shaders/skyshader.js"></script>
+    <script src="../components/terrain.js"></script>
+    <script src="../components/palms.js"></script>
+    <script src="../components/grass.js"></script>
+    <script src="../components/skydome.js"></script>
+    <script src="../components/follow.js"></script>
+    <script src="../components/ambientlight.js"></script>
+    <script src="../components/sweepingtimeofday.js"></script>
+    <script src="../components/walkterraincontrols.js"></script>
+    
+    <script>
+      
+      // Keep track of objects to prevent overlapping objects and to handle object/player collisions
+      AFRAME.registerSystem('objecttracker', {
+        init() {
+          this.objects = [];
+          this.maxRadius = 0;
+        },
+
+        addObject(x, y, radius) {
+          let fx = Math.floor(x);
+          let fy = Math.floor(y);
+          
+          if (!this.objects[fy])
+            this.objects[fy] = [];
+          if (!this.objects[fy][fx])
+            this.objects[fy][fx] = [];
+          
+          this.objects[fy][fx].push({x,y,radius});
+          this.maxRadius = Math.max(radius, this.maxRadius);
+        },
+
+        getNearestObject(x, y, distance) {
+          let nearestObject = null;
+          let nearestDistance = Number.MAX_VALUE
+          for (let j = Math.floor(y-distance-this.maxRadius); j<y+distance+this.maxRadius; j++) {
+            for (let i = Math.floor(x-distance-this.maxRadius); i<x+distance+this.maxRadius; i++) {
+              let objects = this.objects[j]?.[i];
+              if (objects) {
+                for (let o=0; o<objects.length; o++) {
+                  let object = objects[o];
+                  let distance = (object.x-x)**2 + (object.y-y)**2;
+                  if (distance < nearestDistance) {
+                    nearestObject = object;
+                    nearestDistance = distance;
+                  }
+                }
+              }
+            }
+          }
+
+          if (nearestObject) {
+            if (Math.sqrt(nearestDistance) - nearestObject.radius > distance) {
+              nearestObject = null;
+            }
+          }
+
+          return nearestObject;
+        }
+      });         
+      
+      // This component moves the player out of the way in case of a collision with an object
+      AFRAME.registerComponent('avoidobjectscontrols', {
+        schema: {
+         // The player cylinder radius 
+         radius: { default: 0.1 }          
+        },
+        
+        init: function () {
+          this.cameraRigEl = document.querySelector('#camerarig');
+          this.cameraRig = this.cameraRigEl.object3D;
+          this.cameraEl = document.querySelector('[camera]');
+          this.camera = this.cameraEl.object3D;
+          this.cameraPosition = new THREE.Vector3();
+          this.objectTracker = this.el.sceneEl.systems['objecttracker'];          
+        },
+
+        tick: function (time, timeDelta) {
+          let playerX = this.cameraRig.position.x;
+          let playerZ = this.cameraRig.position.z;
+          
+          // Find the nearest object at max 4 meters distance (for speed)
+          let nearest = this.objectTracker.getNearestObject(playerX, playerZ, 4);
+          if (nearest) {
+            let dx = playerX - nearest.x;
+            let dz = playerZ - nearest.y;
+            let distance = Math.sqrt(dx * dx + dz * dz);
+            let overlap = nearest.radius + this.data.radius - distance;
+
+            // Check if the player / camera circle overlaps with the nearest object circle
+            if (overlap > 0) {
+
+              // Move the camera away from the object so the circles just touch
+              let angle = Math.atan2(dz, dx);
+              this.cameraRig.position.x = nearest.x + (nearest.radius + this.data.radius) * Math.cos(angle);
+              this.cameraRig.position.z = nearest.y + (nearest.radius + this.data.radius) * Math.sin(angle);
+            }     
+          }
+        }
+      });    
+       
+    </script>
+    
+  </head>
+
+  <body style="background-color:#004000;">
+    <script>
+      showLoadingImage();
+    </script>
+
+    <a-scene id="scene" background="color:#5AF" 
+                        fog="type: linear; color: #BCD; near: 75; far: 300;" 
+                        timeofday objecttracker>
+
+      <a-entity id="camerarig" movement-controls walkterraincontrols="fly: false" avoidobjectscontrols>
+        <a-entity position="0 1.6 0" camera look-controls="pointerLockEnabled: true;"></a-entity>
+      </a-entity>
+      
+      <a-entity terrain ambientlight></a-entity>
+      <a-entity palms="count:200"></a-entity>
+      <a-entity grass ambientlight></a-entity>
+      
+      <a-entity id="sky" geometry="primitive:skydome;" scale="500 250 500" follow 
+                         material="shader:skyshader; side:back;"></a-entity>  
+      
+    </a-scene>
+    
+  </body>
+
+</html>
+
